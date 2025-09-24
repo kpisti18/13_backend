@@ -1,0 +1,16 @@
+{
+  "name": "fajlrendszer_muveletek",
+  "version": "1.0.0",
+  "description": "native nodejs file system operations",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
