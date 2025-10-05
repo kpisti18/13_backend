@@ -1,6 +1,6 @@
 const express = require('express');
-const http = require('http');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 
@@ -9,90 +9,85 @@ const port = 7000;
 
 app.use(express.json());
 
-const server = http.createServer((req, res) => {
-    switch (true) {
-        // alap endpoint
-        case req.url === '/' && req.method === 'GET':
-            res.setHeader('content-type', 'application/json');
-            res.statusCode = 200;
-            res.end(JSON.stringify({ message: 'Hello World!' }));
-            break;
+// alap endpoint
+app.get('/', (req, res) => {
+    // res.statusCode = 200;
+    // res.json({ message: 'Hello World!' });
+    res.status(200).json({ message: 'Hello World!' });
+});
 
-        // összes színész lekérdezése endpoint
-        case req.url === '/actors' && req.method === 'GET':
-            fs.readFile('./actors.json', (err, file) => {
-                // ha hibára futok a fájl megnyitásakor
-                if (err) {
-                    res.setHeader('content-type', 'application/json');
-                    res.statusCode = 500;
-                    res.end(JSON.stringify({ error: 'Szerver oldali hiba a fájl olvasásakor!' }));
-                    return;
-                }
-                // ha meg tudta nyitni a fájlt, akkor küldjük vissza json üzenetként a fájlt (a fájl már egy json alapból ebben az esetben)
-                res.setHeader('content-type', 'application/json');
-                res.statusCode = 200;
-                res.end(file);
+// összes színész lekérése endpoint
+app.get('/actors', (req, res) => {
+    //res.statusCode = 200;
+    //res.sendFile(path.join(__dirname, 'actors.json'));
+    res.status(200).sendFile(path.join(__dirname, 'actors.json'));
+});
+
+// új színész felvétele endpoint
+app.post('/actors', (req, res) => {
+    const newActor = req.body;
+    //console.log(newActor);
+    
+    fs.readFile('./actors.json', (err, file) => {
+        if (err) {
+            return res.status(500).json({ error: 'Szerver hiba a fájl megnyitásakor' });
+        }
+
+        const actors = JSON.parse(file);
+        //console.log(actors);
+        //res.json(actors);
+        
+        let maxID = 0;
+        actors.forEach(actor => {
+            if (actor.id > maxID) {
+                maxID = actor.id;
+            }
+        });
+        //res.json(maxID)
+
+        newActor.id = maxID + 1;
+        //res.json(newActor);
+
+        actors.push(newActor);
+        //res.json(actors);
+
+        fs.writeFile('./actors.json', JSON.stringify(actors, null, 2), () => {
+            return res.status(201).json({ message: 'Sikeres színész felvétel' });
+        });
+    });
+});
+
+// egy meglévő színész törlése endpoint paraméterrel
+app.delete('/actors/:id', (req, res) => {
+    const deleteID = req.params.id;
+    //console.log(deleteID);
+    
+    fs.readFile('./actors.json', (err, file) => {
+        if (err) {
+            return res.status(500).json({ error: 'Szerver hiba a fájl megnyitásakor' });
+        }
+
+        const actors = JSON.parse(file);
+        //console.log(actors.length);
+        
+        const deleteIndex = actors.findIndex((actor) => {
+            return actor.id == deleteID;
+        });
+        //console.log(deleteIndex);
+        
+        if (deleteIndex !== -1) {
+            actors.splice(deleteIndex, 1);
+            //console.log(actors);
+            
+            fs.writeFile('./actors.json', JSON.stringify(actors, null, 2), () => {
+                res.statusCode = 204;
+                res.send();
             });
-            break;
-
-        // új színész hozzáadása endpoint
-        case req.url === '/actors' && req.method === 'POST':
-            fs.readFile('./actors.json', () => {
-                // kiszedjük a beérkező kérés body-ból az adatokat
-                let body = '';
-
-                req.on('data', (chunk) => {
-                    //console.log(chunk);
-                    body += chunk.toString();
-                });
-                
-                req.on('end', () => {
-                    const newActor = JSON.parse(body);
-                    //console.log(newActor);
-                    
-                    // beolvassuk a fájlt
-                    fs.readFile('./actors.json', (err, file) => {
-                        if (err) {
-                            res.setHeader('content-type', 'application/json');
-                            res.statusCode = 500;
-                            res.end(JSON.stringify({ error: 'Szerver hiba a fájl olvasásakor!' }));
-                            return;
-                        }
-                        // elmentjük a fájl tartalmát egy objectbe
-                        const actors = JSON.parse(file);
-                        //console.log(actors);
-
-                        let maxID = 0;
-                        actors.forEach(actor => {
-                            //console.log(actor);
-                            if (actor.id > maxID) {
-                                maxID = actor.id;
-                            }
-                        });
-
-                        //console.log(maxID);
-                        newActor.id = maxID + 1;
-                        //console.log(newActor);
-                        
-                        actors.push(newActor);
-                        //console.log(actors);
-                        
-                        fs.writeFile('./actors.json', JSON.stringify(actors, null, 2), () => {
-                            res.setHeader('content-type', 'application/json');
-                            res.statusCode = 201;
-                            res.end(JSON.stringify(newActor));
-                        });
-                    });
-                });
-            });
-            break;
-
-        // minden más eset (ha nincs ilyen végpont):
-        default:
-            res.setHeader('content-type', 'application/json');
+        } else {
             res.statusCode = 404;
-            res.end(JSON.stringify({ error: '404 - Nem található!' }));
-    }
+            res.json({ error: 'A keresett elem nem található!' });
+        }
+    });
 });
 
 app.listen(port, host, () => {
